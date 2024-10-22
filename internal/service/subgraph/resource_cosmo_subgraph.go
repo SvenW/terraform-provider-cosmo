@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -237,12 +238,21 @@ func (r *SubgraphResource) Read(ctx context.Context, req resource.ReadRequest, r
 		utils.AddDiagnosticError(resp, ErrRetrievingSubgraph, fmt.Sprintf("Could not fetch subgraph '%s': %s", data.Name.ValueString(), apiError.Error()))
 		return
 	}
+	labels := map[string]attr.Value{}
+	for _, label := range subgraph.GetLabels() {
+		if label != nil {
+			labels[label.GetKey()] = types.StringValue(label.GetValue())
+		}
+	}
+	mapValue, diags := types.MapValueFrom(ctx, types.StringType, labels)
+	resp.Diagnostics.Append(diags...)
 
 	data.Id = types.StringValue(subgraph.GetId())
 	data.Name = types.StringValue(subgraph.GetName())
 	data.Namespace = types.StringValue(subgraph.GetNamespace())
 	data.RoutingURL = types.StringValue(subgraph.GetRoutingURL())
 	data.Schema = types.StringValue(schema)
+	data.Labels = mapValue
 
 	utils.LogAction(ctx, "read", data.Id.ValueString(), data.Name.ValueString(), data.Namespace.ValueString())
 
